@@ -41,6 +41,24 @@ if (!username || !password) {
   throw new Error('Missing REVCOMPS_USERNAME or REVCOMPS_PASSWORD in .env.');
 }
 
+const runHistory: string[] = [];
+const addedUrls: string[] = [];
+
+const log = (message: string) => {
+  runHistory.push(message);
+};
+
+const emitResult = (status: 'ok' | 'no_items') => {
+  console.log(
+    JSON.stringify({
+      status,
+      history: runHistory,
+      addedUrls,
+      addedCount: addedUrls.length,
+    }),
+  );
+};
+
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test('test', async ({ page }) => {
@@ -49,32 +67,32 @@ test('test', async ({ page }) => {
     await page.waitForTimeout(delay);
   };
 
-  console.log('Starting test run');
+  log('Starting test run');
   await page.goto('https://www.revcomps.com/');
-  console.log('Loaded homepage');
+  log('Loaded homepage');
   await sleepRandom(300, 900);
   await page.getByRole('button', { name: 'Accept All' }).click();
-  console.log('Accepted cookies');
+  log('Accepted cookies');
   await sleepRandom(250, 700);
   await page.getByRole('link', { name: 'Log In' }).click();
-  console.log('Opened login');
+  log('Opened login');
   await sleepRandom(250, 700);
   await page.getByRole('textbox', { name: 'Username or Email Address' }).fill(username);
-  console.log('Entered username');
+  log('Entered username');
   await sleepRandom(250, 700);
   await page.getByRole('textbox', { name: 'Password' }).fill(password);
-  console.log('Entered password');
+  log('Entered password');
   await sleepRandom(250, 700);
   await page.getByRole('button', { name: 'Log In' }).click();
-  console.log('Submitted login');
+  log('Submitted login');
   await page.waitForSelector('div.qode-pli');
-  console.log('Listings loaded');
+  log('Listings loaded');
 
   const freeItems = page.locator(
     'div.qode-pli:has(div.price_image:has-text("free"))',
   );
   const freeItemCount = await freeItems.count();
-  console.log(`Found ${freeItemCount} free items before filtering`);
+  log(`Found ${freeItemCount} free items before filtering`);
   const items = await Promise.all(
     Array.from({ length: freeItemCount }, (_, i) => i).map(async (i) => {
       const item = freeItems.nth(i);
@@ -83,7 +101,7 @@ test('test', async ({ page }) => {
       return { title, url };
     }),
   );
-  console.log(`Collected ${items.length} item entries`);
+  log(`Collected ${items.length} item entries`);
   const uniqueUrlList = [
     ...new Set(
       items
@@ -92,22 +110,22 @@ test('test', async ({ page }) => {
             title.toLowerCase().includes('referral') ||
             url.toLowerCase().includes('referral');
           if (isReferral) {
-            console.log(`Filtered referral: ${title} - ${url}`);
+            log(`Filtered referral: ${title} - ${url}`);
           }
           return url && !isReferral;
         })
         .map(({ url }) => url),
     ),
   ];
-  console.log(`Found ${uniqueUrlList.length} free items`);
+  log(`Found ${uniqueUrlList.length} free items`);
 
   const eligibleUrlList: string[] = [];
 
   for (let i = 0; i < uniqueUrlList.length; i += 1) {
     const url = uniqueUrlList[i];
-    console.log(`Free item ${i + 1}: ${url}`);
+    log(`Free item ${i + 1}: ${url}`);
     await page.goto(url);
-    console.log(`Opened item page: ${url}`);
+    log(`Opened item page: ${url}`);
     await sleepRandom(400, 1200);
     const hasTicketBanner = await page
       .getByText('YOU HAVE 1 TICKET ON THIS PRIZE', { exact: false })
@@ -116,31 +134,35 @@ test('test', async ({ page }) => {
       .getByText('You cannot purchase anymore tickets', { exact: false })
       .isVisible();
     if (hasTicketBanner || maxTicketMessage) {
-      console.log(`Skipping already-held ticket: ${url}`);
+      log(`Skipping already-held ticket: ${url}`);
       continue;
     }
 
     eligibleUrlList.push(url);
-    console.log(`Eligible item: ${url}`);
+    log(`Eligible item: ${url}`);
     await page.locator('#question_select').selectOption('london');
-    console.log('Selected answer: london');
+    log('Selected answer: london');
     await sleepRandom(300, 900);
     await page.locator('#submitorder').click();
-    console.log(`Added to cart: ${url}`);
+    log(`Added to cart: ${url}`);
+    addedUrls.push(url);
     await sleepRandom(500, 1500);
   }
 
   if (eligibleUrlList.length === 0) {
-    console.log('No eligible free items, skipping checkout.');
+    log('No eligible free items, skipping checkout.');
+    emitResult('no_items');
     return;
   }
 
   await page.goto('https://www.revcomps.com/cart/');
-  console.log('Opened cart');
+  log('Opened cart');
   await sleepRandom(500, 1200);
   await page.getByRole('link', { name: 'Proceed to checkout' }).click();
-  console.log('Proceeded to checkout');
+  log('Proceeded to checkout');
   await sleepRandom(700, 1400);
   await page.locator('#place_order').click();
-  console.log('Placed order');
+  log('Placed order');
+
+  emitResult('ok');
 });
