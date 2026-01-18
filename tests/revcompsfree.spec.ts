@@ -130,6 +130,11 @@ test('test', async ({ page }) => {
     await sleepRandom(500, 1500);
   }
 
+  if (eligibleUrlList.length === 0) {
+    console.log('No eligible free items, skipping checkout.');
+    return;
+  }
+
   await page.goto('https://www.revcomps.com/cart/');
   console.log('Opened cart');
   await sleepRandom(500, 1200);
