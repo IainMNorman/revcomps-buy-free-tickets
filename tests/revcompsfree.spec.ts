@@ -49,6 +49,7 @@ const resultPath = process.env.N8N_RESULT_PATH
 
 const log = (message: string) => {
   runHistory.push(message);
+  console.log(message);
 };
 
 const emitResult = (status: 'ok' | 'no_items' | 'error', error?: string) => {
