@@ -162,10 +162,10 @@ test('test', async ({ page }) => {
 
     await page.goto('https://www.revcomps.com/cart/');
     log('Opened cart');
-    await sleepRandom(500, 1200);
+    await sleepRandom(2500, 10000);
     await page.getByRole('link', { name: 'Proceed to checkout' }).click();
     log('Proceeded to checkout');
-    await sleepRandom(700, 1400);
+    await sleepRandom(2500, 10000);
     await page.locator('#place_order').click();
     log('Placed order');
 
