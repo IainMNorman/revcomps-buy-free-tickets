@@ -169,6 +169,7 @@ test('test', async ({ page }) => {
     await sleepRandom(2500, 10000);
     await page.locator('#place_order').click();
     log('Placed order');
+    await sleepRandom(5000, 10000);
 
     emitResult('ok');
   } catch (error) {
