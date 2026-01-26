@@ -72,6 +72,7 @@ test('test', async ({ page }) => {
   };
 
   try {
+    test.setTimeout(120_000);
     log('Starting test run');
     await page.goto('https://www.revcomps.com/');
     log('Loaded homepage');
