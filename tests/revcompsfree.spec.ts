@@ -91,11 +91,11 @@ test('test', async ({ page }) => {
     await sleepRandom(250, 700);
     await page.getByRole('button', { name: 'Log In' }).click();
     log('Submitted login');
-    await page.waitForSelector('div.qode-pli');
+    await page.waitForSelector('div.rcfs-badge');
     log('Listings loaded');
 
     const freeItems = page.locator(
-      'div.qode-pli:has(div.price_image:has-text("free"))',
+      'div.rcfs-badge:has(div.rcfs-badge-price:has-text("free"))',
     );
     const freeItemCount = await freeItems.count();
     log(`Found ${freeItemCount} free items before filtering`);
