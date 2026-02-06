@@ -31,18 +31,6 @@
       "sameSite": "None"
     },
     {
-      "name": "cf_clearance",
-      "value": "mlMbLNGGBMhIneYD7EUJEBWoYNdg6v4MMtUByyj9_S8-1770407495-1.2.1.1-oiUeffK1emP334qd3mmXyaC8fpcXDsMdYHe6Az57r7K9L_aeHZWadVVxrGfk_NfI50GgdJE781iIg_AwegCUWfrd4u0Xgn2_jTGxyQt9PiZjwbkXyr9rvU40G01MTrDV4zgacokGK6aG5zmuvq40nzTNIqWfgZiupR5Bk15P8izHoeqe9vZL8oW.fKKxPEOu1gdzAsYdyrLpo_C3akEkIC1zuPq4HmuTe.3uoTaEJBc",
-      "domain": ".revcomps.com",
-      "path": "/",
-      "expires": 1801943495.229269,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None",
-      "partitionKey": "https://revcomps.com",
-      "_crHasCrossSiteAncestor": false
-    },
-    {
       "name": "cookieyes-consent",
       "value": "consentid:dXEwOUtzYjNEOTVYZHgxUmwyU2xsN29jSGhJaEFYUWQ,consent:yes,action:yes,necessary:yes,functional:yes,analytics:yes,performance:yes,advertisement:yes,other:yes",
       "domain": "www.revcomps.com",
@@ -57,7 +45,7 @@
       "value": "fb.1.1770407497136.380050877401808734",
       "domain": ".revcomps.com",
       "path": "/",
-      "expires": 1778183808,
+      "expires": 1778184875,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -79,7 +67,7 @@
       "value": "vflCIqh8KB0",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1785959808.103355,
+      "expires": 1785960875.023893,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -91,7 +79,7 @@
       "value": "CgJHQhIEGgAgaQ%3D%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1785959808.103373,
+      "expires": 1785960875.02392,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -139,6 +127,48 @@
       "sameSite": "None",
       "partitionKey": "https://revcomps.com",
       "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "cf_clearance",
+      "value": "5FRGsCzfxGiTEnQk9kPFkLXG5THxcQ0z6AXW89qiA00-1770408243-1.2.1.1-5jT4QdC0LSxf80uCzxsFpfce6.DSNrSsTzj8jtoWgFCKlZqGBrruSPbY2ebH1V9M0a8sVIsrzWhKB4MW65wAK8fGBwDJfqWavpZYCp8tv7n1nHnefKDCqGgRjDswymguZS7JvrwP1XIbWPItCKrI2tiB9AwoWvpL1YXajcEYY3J2.vw8CJhEizdsS.78zexBYerQZE9LowdEeeUGSDoPonp.G4iW5s4kvRbInmVKMm8",
+      "domain": ".revcomps.com",
+      "path": "/",
+      "expires": 1801944243.809926,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "woocommerce_items_in_cart",
+      "value": "1",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "woocommerce_cart_hash",
+      "value": "97a48c7383fb5896098478de1c684399",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "wp_woocommerce_session_92d3b2de2df29b82093cfdf1c12e62b7",
+      "value": "556372%7C%7C1770581422%7C%7C1770577822%7C%7Ce6b03e32a6395a438477daf8e56ceab6",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": 1770581422.810392,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
     }
   ],
   "origins": [
@@ -151,11 +181,11 @@
         },
         {
           "name": "lastExternalReferrerTime",
-          "value": "1770407808128"
+          "value": "1770408875095"
         },
         {
           "name": "topicsLastReferenceTime",
-          "value": "1770407808142"
+          "value": "1770408875114"
         }
       ]
     },
@@ -164,7 +194,7 @@
       "localStorage": [
         {
           "name": "yt-remote-connected-devices",
-          "value": "{\"data\":\"[]\",\"expiration\":1770494208346,\"creation\":1770407808346}"
+          "value": "{\"data\":\"[]\",\"expiration\":1770495275313,\"creation\":1770408875313}"
         },
         {
           "name": "yt-remote-device-id",
@@ -172,7 +202,7 @@
         },
         {
           "name": "ytidb::LAST_RESULT_ENTRY_KEY",
-          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1772999808295,\"creation\":1770407808295}"
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1773000875224,\"creation\":1770408875224}"
         }
       ]
     }

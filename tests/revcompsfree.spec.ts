@@ -86,6 +86,21 @@ test('test', async ({ page }) => {
     log('Starting test run');
     await page.goto('https://www.revcomps.com/');
     log('Loaded homepage');
+    await page.addStyleTag({
+      content: `
+        .iframe-container,
+        .iframe-container-hp,
+        .video-responsive {
+          pointer-events: none !important;
+        }
+        .iframe-container iframe,
+        .iframe-container-hp iframe,
+        .video-responsive iframe {
+          pointer-events: none !important;
+        }
+      `,
+    });
+    log('Disabled video pointer events');
     await sleepRandom(300, 900);
     const acceptCookies = page.getByRole('button', { name: 'Accept All' });
     if (await acceptCookies.isVisible()) {
@@ -117,7 +132,86 @@ test('test', async ({ page }) => {
     
     await page.waitForSelector('a.rcfs-card');
     log('Listings loaded');
+    await page.waitForSelector('.rcfs-topbar');
+    const chips = page.locator('.rcfs-topbar .rcfs-chip');
+    const chipCount = await chips.count();
+    log(`Topbar chip count: ${chipCount}`);
+    if (chipCount > 0) {
+      const chipTexts = await chips.allTextContents();
+      log(`Topbar chip labels: ${chipTexts.map((t) => t.trim()).join(' | ')}`);
+      const activeChips = await page
+        .locator('.rcfs-topbar .rcfs-chip.is-active')
+        .allTextContents();
+      if (activeChips.length > 0) {
+        log(`Active chip(s) before click: ${activeChips.map((t) => t.trim()).join(' | ')}`);
+      } else {
+        log('No active chip before click.');
+      }
+    }
+    const freeTab = page.locator('.rcfs-topbar .rcfs-chip[data-idx="12"]');
+    if (await freeTab.isVisible()) {
+      const isActive = await freeTab.evaluate((el) => el.classList.contains('is-active'));
+      const freeTabText = (await freeTab.textContent())?.trim() ?? '';
+      const freeTabClass = await freeTab.evaluate((el) => el.className);
+      log(`FREE tab found: text="${freeTabText}" class="${freeTabClass}" active=${isActive}`);
+      if (!isActive) {
+        await freeTab.scrollIntoViewIfNeeded();
+        let activated = false;
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          if (attempt === 1) {
+            await freeTab.click({ force: true });
+            log('Selected FREE tab (click)');
+          } else if (attempt === 2) {
+            await freeTab.dispatchEvent('click');
+            log('Selected FREE tab (dispatchEvent)');
+          } else {
+            await freeTab.evaluate((el) => el.click());
+            log('Selected FREE tab (element.click)');
+          }
+          try {
+            await page.waitForFunction(
+              () =>
+                !!document
+                  .querySelector('.rcfs-topbar .rcfs-chip[data-idx="12"]')
+                  ?.classList.contains('is-active'),
+              { timeout: 1500 },
+            );
+            activated = true;
+            break;
+          } catch {
+            log(`FREE tab still inactive after attempt ${attempt}.`);
+          }
+        }
+        await sleepRandom(400, 900);
+        const activeAfter = await page
+          .locator('.rcfs-topbar .rcfs-chip.is-active')
+          .allTextContents();
+        if (activeAfter.length > 0) {
+          log(`Active chip(s) after click: ${activeAfter.map((t) => t.trim()).join(' | ')}`);
+        } else {
+          log('No active chip after click.');
+        }
+        if (!activated) {
+          log('FREE tab did not become active; filtering may not have applied.');
+        }
+      } else {
+        log('FREE tab already active; skipping click.');
+      }
+    } else {
+      log('FREE tab not found; continuing.');
+      const chipsWithIdx = await page
+        .locator('.rcfs-topbar .rcfs-chip')
+        .evaluateAll((els) =>
+          els.map((el) => ({
+            text: (el.textContent || '').trim(),
+            idx: el.getAttribute('data-idx'),
+            className: el.className,
+          })),
+        );
+      log(`Topbar chip details: ${JSON.stringify(chipsWithIdx)}`);
+    }
     
+    await page.waitForSelector('a.rcfs-card');
     const freeItems = page.locator(
       'a.rcfs-card:has(.rcfs-badge-price:has-text("free"))',
     );
@@ -171,9 +265,6 @@ test('test', async ({ page }) => {
 
       eligibleUrlList.push(url);
       log(`Eligible item: ${url}`);
-      await page.locator('#question_select').selectOption('london');
-      log('Selected answer: london');
-      await sleepRandom(300, 900);
       await page.locator('#submitorder').click();
       log(`Added to cart: ${url}`);
       addedUrls.push(url);
@@ -203,7 +294,7 @@ test('test', async ({ page }) => {
     await sleepRandom(5000, 10000);
 
     emitResult('ok');
-    
+
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Error: ${message}`);
