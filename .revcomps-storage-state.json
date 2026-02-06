@@ -1,0 +1,180 @@
+{
+  "cookies": [
+    {
+      "name": "wordpress_sec_92d3b2de2df29b82093cfdf1c12e62b7",
+      "value": "iain_3%7C4924007503%7CwOGdgpR2Q4HqiAOoxNB3kjlI1y0G4CD9AAsh1AfBvD6%7Ce8bfd7e8a2fa25fa85f6e7a8fca12379cd2161f0f94672ee34107fa92177ea28",
+      "domain": "www.revcomps.com",
+      "path": "/wp-content/plugins",
+      "expires": 1804967503.725614,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "wordpress_sec_92d3b2de2df29b82093cfdf1c12e62b7",
+      "value": "iain_3%7C4924007503%7CwOGdgpR2Q4HqiAOoxNB3kjlI1y0G4CD9AAsh1AfBvD6%7Ce8bfd7e8a2fa25fa85f6e7a8fca12379cd2161f0f94672ee34107fa92177ea28",
+      "domain": "www.revcomps.com",
+      "path": "/wp-admin",
+      "expires": 1804967503.725654,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "WWYvLZFtf5j9nWKtozE9_F41_vKZ2jtKX600dvSn1Ug-1770407494562-0.0.1.1-604800000",
+      "domain": ".www.revcomps.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "cf_clearance",
+      "value": "mlMbLNGGBMhIneYD7EUJEBWoYNdg6v4MMtUByyj9_S8-1770407495-1.2.1.1-oiUeffK1emP334qd3mmXyaC8fpcXDsMdYHe6Az57r7K9L_aeHZWadVVxrGfk_NfI50GgdJE781iIg_AwegCUWfrd4u0Xgn2_jTGxyQt9PiZjwbkXyr9rvU40G01MTrDV4zgacokGK6aG5zmuvq40nzTNIqWfgZiupR5Bk15P8izHoeqe9vZL8oW.fKKxPEOu1gdzAsYdyrLpo_C3akEkIC1zuPq4HmuTe.3uoTaEJBc",
+      "domain": ".revcomps.com",
+      "path": "/",
+      "expires": 1801943495.229269,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": false
+    },
+    {
+      "name": "cookieyes-consent",
+      "value": "consentid:dXEwOUtzYjNEOTVYZHgxUmwyU2xsN29jSGhJaEFYUWQ,consent:yes,action:yes,necessary:yes,functional:yes,analytics:yes,performance:yes,advertisement:yes,other:yes",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": 1801943496,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "_fbp",
+      "value": "fb.1.1770407497136.380050877401808734",
+      "domain": ".revcomps.com",
+      "path": "/",
+      "expires": 1778183808,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "YSC",
+      "value": "_ZvE2MmK5e4",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "VISITOR_INFO1_LIVE",
+      "value": "vflCIqh8KB0",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1785959808.103355,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "VISITOR_PRIVACY_METADATA",
+      "value": "CgJHQhIEGgAgaQ%3D%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1785959808.103373,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "wordpress_test_cookie",
+      "value": "WP%20Cookie%20check",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "no_cache",
+      "value": "1",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "wordpress_logged_in_92d3b2de2df29b82093cfdf1c12e62b7",
+      "value": "iain_3%7C4924007503%7CwOGdgpR2Q4HqiAOoxNB3kjlI1y0G4CD9AAsh1AfBvD6%7C884a8d88fdcab5e6bf81ecd2dacd628dbc261fc8927ae2ce96a4a58aca14634e",
+      "domain": "www.revcomps.com",
+      "path": "/",
+      "expires": 1804967503.725671,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__Secure-ROLLOUT_TOKEN",
+      "value": "COPurt3-jI_NrwEQ5oTi79HFkgMYi4Sk19LFkgM%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1785959714.209299,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://revcomps.com",
+      "_crHasCrossSiteAncestor": true
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.revcomps.com",
+      "localStorage": [
+        {
+          "name": "lastExternalReferrer",
+          "value": "empty"
+        },
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1770407808128"
+        },
+        {
+          "name": "topicsLastReferenceTime",
+          "value": "1770407808142"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.youtube.com",
+      "localStorage": [
+        {
+          "name": "yt-remote-connected-devices",
+          "value": "{\"data\":\"[]\",\"expiration\":1770494208346,\"creation\":1770407808346}"
+        },
+        {
+          "name": "yt-remote-device-id",
+          "value": "{\"data\":\"e4fa077f-e9a2-4d28-a406-cf58943ff94c\",\"expiration\":1801943497413,\"creation\":1770407497413}"
+        },
+        {
+          "name": "ytidb::LAST_RESULT_ENTRY_KEY",
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1772999808295,\"creation\":1770407808295}"
+        }
+      ]
+    }
+  ]
+}

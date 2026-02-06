@@ -36,6 +36,9 @@ loadEnvFile();
 
 const username = process.env.REVCOMPS_USERNAME;
 const password = process.env.REVCOMPS_PASSWORD;
+const isTestMode =
+  process.env.REVCOMPS_TEST_MODE?.toLowerCase() === 'true' ||
+  process.env.REVCOMPS_TEST_MODE === '1';
 
 if (!username || !password) {
   throw new Error('Missing REVCOMPS_USERNAME or REVCOMPS_PASSWORD in .env.');
@@ -46,6 +49,9 @@ const addedUrls: string[] = [];
 const resultPath = process.env.N8N_RESULT_PATH
   ? path.resolve(process.env.N8N_RESULT_PATH)
   : path.resolve(process.cwd(), '.n8n-result.json');
+const storageStatePath = process.env.REVCOMPS_STORAGE_STATE_PATH
+  ? path.resolve(process.env.REVCOMPS_STORAGE_STATE_PATH)
+  : path.resolve(process.cwd(), '.revcomps-storage-state.json');
 
 const log = (message: string) => {
   runHistory.push(message);
@@ -63,7 +69,11 @@ const emitResult = (status: 'ok' | 'no_items' | 'error', error?: string) => {
   fs.writeFileSync(resultPath, JSON.stringify(payload), 'utf8');
 };
 
-test.use({ storageState: { cookies: [], origins: [] } });
+test.use({
+  storageState: fs.existsSync(storageStatePath)
+    ? storageStatePath
+    : { cookies: [], origins: [] },
+});
 
 test('test', async ({ page }) => {
   const sleepRandom = async (minMs: number, maxMs: number) => {
@@ -77,33 +87,48 @@ test('test', async ({ page }) => {
     await page.goto('https://www.revcomps.com/');
     log('Loaded homepage');
     await sleepRandom(300, 900);
-    await page.getByRole('button', { name: 'Accept All' }).click();
-    log('Accepted cookies');
-    await sleepRandom(250, 700);
-    await page.getByRole('link', { name: 'Log In' }).click();
-    log('Opened login');
-    await sleepRandom(250, 700);
-    await page.getByRole('textbox', { name: 'Username or Email Address' }).fill(username);
-    log('Entered username');
-    await sleepRandom(250, 700);
-    await page.getByRole('textbox', { name: 'Password' }).fill(password);
-    log('Entered password');
-    await sleepRandom(250, 700);
-    await page.getByRole('button', { name: 'Log In' }).click();
-    log('Submitted login');
-    await page.waitForSelector('div.rcfs-badge');
-    log('Listings loaded');
+    const acceptCookies = page.getByRole('button', { name: 'Accept All' });
+    if (await acceptCookies.isVisible()) {
+      await acceptCookies.click();
+      log('Accepted cookies');
+      await sleepRandom(250, 700);
+    } else {
+      log('There was no cookie banner.');
+    }
 
+    const loginLink = page.getByRole('link', { name: 'Log In' });
+    if (await loginLink.isVisible()) {
+      await loginLink.click();
+      log('Opened login');
+      await sleepRandom(250, 700);
+      await page.getByRole('textbox', { name: 'Username or Email Address' }).fill(username);
+      log('Entered username');
+      await sleepRandom(250, 700);
+      await page.getByRole('textbox', { name: 'Password' }).fill(password);
+      log('Entered password');
+      await sleepRandom(250, 700);
+      await page.getByRole('button', { name: 'Log In' }).click();
+      log('Submitted login');
+    } else {
+      log('Already logged in; skipping login.');
+    }
+    await page.context().storageState({ path: storageStatePath });
+    log(`Saved storage state: ${storageStatePath}`);
+    
+    await page.waitForSelector('a.rcfs-card');
+    log('Listings loaded');
+    
     const freeItems = page.locator(
-      'div.rcfs-badge:has(div.rcfs-badge-price:has-text("free"))',
+      'a.rcfs-card:has(.rcfs-badge-price:has-text("free"))',
     );
+
     const freeItemCount = await freeItems.count();
     log(`Found ${freeItemCount} free items before filtering`);
     const items = await Promise.all(
       Array.from({ length: freeItemCount }, (_, i) => i).map(async (i) => {
         const item = freeItems.nth(i);
-        const title = (await item.locator('.qode-pli-title').innerText()).trim();
-        const url = (await item.locator('a.qode-pli-link').getAttribute('href')) ?? '';
+        const title = (await item.locator('.rcfs-name').innerText()).trim();
+        const url = (await item.getAttribute('href')) ?? '';
         return { title, url };
       }),
     );
@@ -167,11 +192,18 @@ test('test', async ({ page }) => {
     await page.getByRole('link', { name: 'Proceed to checkout' }).click();
     log('Proceeded to checkout');
     await sleepRandom(2500, 10000);
+    if (isTestMode) {
+      log('Test mode enabled; skipping order placement.');
+      emitResult('ok');
+      return;
+    }
+
     await page.locator('#place_order').click();
     log('Placed order');
     await sleepRandom(5000, 10000);
 
     emitResult('ok');
+    
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Error: ${message}`);
