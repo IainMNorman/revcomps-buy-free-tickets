@@ -84,7 +84,7 @@ test('test', async ({ page }) => {
 
   try {
     test.setTimeout(120_000);
-    log('Starting test run');
+    log(`Starting test run as ${username}`);
     await page.goto('https://www.revcomps.com/');
     log('Loaded homepage');
     await page.addStyleTag({
