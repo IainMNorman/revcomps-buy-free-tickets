@@ -61,6 +61,7 @@ const log = (message: string) => {
 const emitResult = (status: 'ok' | 'no_items' | 'error', error?: string) => {
   const payload = {
     status,
+    username,
     history: runHistory,
     addedUrls,
     addedCount: addedUrls.length,
