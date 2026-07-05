@@ -154,6 +154,50 @@ test('test', async ({ page }) => {
 
   const pageText = async (p: Page) => (await p.locator('body').innerText()).replace(/\s+/g, ' ');
 
+  // The site throws full-screen modals (e.g. after the free ticket lands in
+  // the cart) that swallow clicks. Close them before clicking anything vital.
+  const dismissOverlays = async () => {
+    for (let round = 1; round <= 3; round += 1) {
+      const overlay = page.locator('div.fixed.inset-0:visible').last();
+      if (!(await overlay.isVisible().catch(() => false))) {
+        return;
+      }
+      const overlayText = (await overlay.innerText().catch(() => ''))
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      log(`Overlay detected (round ${round}): "${overlayText}"`);
+      const closeButton = overlay
+        .locator(
+          'button[aria-label*="close" i], [data-test*="close" i], button:has-text("×"), button:has-text("Close"), button:has-text("No thanks"), button:has-text("Continue"), button:has-text("Got it"), button:has-text("OK")',
+        )
+        .first();
+      if (await closeButton.isVisible().catch(() => false)) {
+        await closeButton.dispatchEvent('click');
+        log('Clicked overlay close button');
+      } else {
+        await page.keyboard.press('Escape');
+        log('Pressed Escape to close overlay');
+      }
+      await sleepRandom(600, 1200);
+    }
+    log('Overlay may still be present after 3 dismiss attempts.');
+  };
+
+  // Click that survives overlays: try a real click briefly, then fall back
+  // to a synthetic event which ignores pointer interception.
+  const clickThroughOverlays = async (locator: ReturnType<Page['locator']>, label: string) => {
+    await dismissOverlays();
+    try {
+      await locator.click({ timeout: 10_000 });
+      log(`Clicked ${label}`);
+    } catch {
+      await dismissOverlays();
+      await locator.dispatchEvent('click');
+      log(`Clicked ${label} (dispatchEvent fallback)`);
+    }
+  };
+
   try {
     test.setTimeout(240_000);
     log(`Starting test run as ${username}`);
@@ -330,8 +374,10 @@ test('test', async ({ page }) => {
     }
 
     addedUrls.push(...eligibleUrlList);
-    await page.getByRole('button', { name: /proceed to checkout/i }).first().click();
-    log('Proceeded to checkout');
+    await clickThroughOverlays(
+      page.getByRole('button', { name: /proceed to checkout/i }).first(),
+      'Proceed to checkout',
+    );
     await sleepRandom(2500, 6000);
 
     if (isTestMode) {
@@ -351,13 +397,11 @@ test('test', async ({ page }) => {
         `Checkout button shows a non-zero amount ("${payLabel}"); refusing to pay.`,
       );
     }
-    await payNow.click();
-    log(`Clicked pay button ("${payLabel}")`);
+    await clickThroughOverlays(payNow, `pay button ("${payLabel}")`);
     await sleepRandom(3000, 6000);
     // The recorded flow needed a second click on PAY NOW.
     if (await payNow.isVisible().catch(() => false)) {
-      await payNow.click();
-      log('Clicked pay button again');
+      await clickThroughOverlays(payNow, 'pay button (second click)');
     }
     await sleepRandom(5000, 10000);
     log('Order placed');
