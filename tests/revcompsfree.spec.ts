@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, Page } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
@@ -40,265 +40,319 @@ const isTestMode =
   process.env.REVCOMPS_TEST_MODE?.toLowerCase() === 'true' ||
   process.env.REVCOMPS_TEST_MODE === '1';
 
-if (!username || !password) {
-  throw new Error('Missing REVCOMPS_USERNAME or REVCOMPS_PASSWORD in .env.');
-}
-
-const runHistory: string[] = [];
-const addedUrls: string[] = [];
 const resultPath = process.env.N8N_RESULT_PATH
   ? path.resolve(process.env.N8N_RESULT_PATH)
   : path.resolve(process.cwd(), '.n8n-result.json');
-const storageStatePath = process.env.REVCOMPS_STORAGE_STATE_PATH
-  ? path.resolve(process.env.REVCOMPS_STORAGE_STATE_PATH)
-  : path.resolve(process.cwd(), '.revcomps-storage-state.json');
 
+type RunStatus = 'ok' | 'no_items' | 'error';
+
+const runHistory: string[] = [];
+const addedUrls: string[] = [];
+let lastStep = 'startup';
+let finalStatus: RunStatus | null = null;
+let finalError: string | undefined;
+
+const buildPayload = (
+  status: RunStatus,
+  opts: { errorMessage?: string; finished: boolean; testStatus?: string },
+) => ({
+  status,
+  error: status === 'error',
+  errorMessage: opts.errorMessage ?? null,
+  failedStep: status === 'error' ? lastStep : null,
+  finished: opts.finished,
+  testStatus: opts.testStatus ?? null,
+  username,
+  history: runHistory,
+  addedUrls,
+  addedCount: addedUrls.length,
+  timestamp: new Date().toISOString(),
+});
+
+// Atomic write so n8n never reads a half-written file.
+const writeResult = (payload: object) => {
+  try {
+    const tmpPath = `${resultPath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(payload), 'utf8');
+    fs.renameSync(tmpPath, resultPath);
+  } catch (writeError) {
+    console.error(`Failed to write result file: ${writeError}`);
+  }
+};
+
+// Every log updates the result file, so even a hard crash / kill leaves a
+// valid JSON with error=true and the step it died on.
 const log = (message: string) => {
   runHistory.push(message);
   console.log(message);
+  lastStep = message;
+  writeResult(
+    buildPayload('error', {
+      errorMessage: `Run did not finish (last step: ${lastStep})`,
+      finished: false,
+    }),
+  );
 };
 
-const emitResult = (status: 'ok' | 'no_items' | 'error', error?: string) => {
-  const payload = {
-    status,
-    username,
-    history: runHistory,
-    addedUrls,
-    addedCount: addedUrls.length,
-    error,
-  };
-  fs.writeFileSync(resultPath, JSON.stringify(payload), 'utf8');
+const emitResult = (status: RunStatus, error?: string) => {
+  finalStatus = status;
+  finalError = error;
+  writeResult(buildPayload(status, { errorMessage: error, finished: true }));
 };
 
-test.use({
-  storageState: fs.existsSync(storageStatePath)
-    ? storageStatePath
-    : { cookies: [], origins: [] },
+if (!username || !password) {
+  emitResult('error', 'Missing REVCOMPS_USERNAME or REVCOMPS_PASSWORD in .env.');
+  throw new Error('Missing REVCOMPS_USERNAME or REVCOMPS_PASSWORD in .env.');
+}
+
+// Runs even when the test times out or fails mid-flight; stamps the file
+// with Playwright's own verdict.
+test.afterEach(async ({}, testInfo) => {
+  const testStatus = testInfo.status ?? 'unknown';
+  if (finalStatus && testStatus === 'passed') {
+    writeResult(
+      buildPayload(finalStatus, {
+        errorMessage: finalError,
+        finished: true,
+        testStatus,
+      }),
+    );
+    return;
+  }
+  const message =
+    finalError ??
+    testInfo.error?.message?.split('\n')[0] ??
+    `Test ended with status "${testStatus}" (last step: ${lastStep})`;
+  writeResult(
+    buildPayload('error', {
+      errorMessage: message,
+      finished: false,
+      testStatus,
+    }),
+  );
 });
 
+// The new site is a slow SPA; the free-ticket auto-add happens on login,
+// so every run logs in fresh instead of reusing a stored session.
 test('test', async ({ page }) => {
   const sleepRandom = async (minMs: number, maxMs: number) => {
     const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
     await page.waitForTimeout(delay);
   };
 
-  try {
-    test.setTimeout(120_000);
-    log(`Starting test run as ${username}`);
-    await page.goto('https://www.revcomps.com/');
-    log('Loaded homepage');
-    await page.addStyleTag({
-      content: `
-        .iframe-container,
-        .iframe-container-hp,
-        .video-responsive {
-          pointer-events: none !important;
-        }
-        .iframe-container iframe,
-        .iframe-container-hp iframe,
-        .video-responsive iframe {
-          pointer-events: none !important;
-        }
-      `,
-    });
-    log('Disabled video pointer events');
-    await sleepRandom(300, 900);
-    const acceptCookies = page.getByRole('button', { name: 'Accept All' });
-    if (await acceptCookies.isVisible()) {
+  const acceptCookiesIfShown = async () => {
+    const acceptCookies = page.getByRole('button', { name: /accept all/i }).first();
+    if (await acceptCookies.isVisible().catch(() => false)) {
       await acceptCookies.click();
       log('Accepted cookies');
       await sleepRandom(250, 700);
-    } else {
-      log('There was no cookie banner.');
     }
+  };
 
-    const loginLink = page.getByRole('link', { name: 'Log In' });
-    if (await loginLink.isVisible()) {
-      await loginLink.click();
-      log('Opened login');
+  const pageText = async (p: Page) => (await p.locator('body').innerText()).replace(/\s+/g, ' ');
+
+  try {
+    test.setTimeout(240_000);
+    log(`Starting test run as ${username}`);
+
+    await page.goto('https://www.revcomps.com/login', { waitUntil: 'commit' });
+    const emailInput = page
+      .locator('[data-test="login-modal-input-name"], input[name="email"]')
+      .first();
+    const passwordInput = page
+      .locator('[data-test="login-modal-input-password"], input[name="password"]')
+      .first();
+    await emailInput.waitFor({ timeout: 60_000 });
+    log('Loaded login page');
+    // Let the SPA hydrate; filling too early gets wiped by React re-renders.
+    await page.waitForTimeout(3000);
+    await acceptCookiesIfShown();
+
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await emailInput.fill(username);
       await sleepRandom(250, 700);
-      await page.getByRole('textbox', { name: 'Username or Email Address' }).fill(username);
-      log('Entered username');
+      await passwordInput.fill(password);
       await sleepRandom(250, 700);
-      await page.getByRole('textbox', { name: 'Password' }).fill(password);
-      log('Entered password');
-      await sleepRandom(250, 700);
-      await page.getByRole('button', { name: 'Log In' }).click();
-      log('Submitted login');
-    } else {
-      log('Already logged in; skipping login.');
+      if (
+        (await emailInput.inputValue()) === username &&
+        (await passwordInput.inputValue()) === password
+      ) {
+        break;
+      }
+      log(`Login fields were reset by the page; refilling (attempt ${attempt}).`);
+      await page.waitForTimeout(1500);
     }
-    await page.context().storageState({ path: storageStatePath });
-    log(`Saved storage state: ${storageStatePath}`);
-    
-    await page.waitForSelector('a.rcfs-card');
+    log('Entered credentials');
+    await acceptCookiesIfShown();
+    await page.locator('#login-modal-conectare').click();
+    log('Submitted login');
+    await page
+      .getByRole('button', { name: 'Logout' })
+      .first()
+      .waitFor({ timeout: 60_000 });
+    log('Logged in (free tickets are auto-added to cart on login)');
+    await sleepRandom(500, 1200);
+
+    // Collect free competitions from the listings.
+    await page.goto('https://www.revcomps.com/current-competitions', { waitUntil: 'commit' });
+    await page.getByRole('tab').first().waitFor({ timeout: 60_000 });
     log('Listings loaded');
-    await page.waitForSelector('.rcfs-topbar');
-    const chips = page.locator('.rcfs-topbar .rcfs-chip');
-    const chipCount = await chips.count();
-    log(`Topbar chip count: ${chipCount}`);
-    if (chipCount > 0) {
-      const chipTexts = await chips.allTextContents();
-      log(`Topbar chip labels: ${chipTexts.map((t) => t.trim()).join(' | ')}`);
-      const activeChips = await page
-        .locator('.rcfs-topbar .rcfs-chip.is-active')
-        .allTextContents();
-      if (activeChips.length > 0) {
-        log(`Active chip(s) before click: ${activeChips.map((t) => t.trim()).join(' | ')}`);
-      } else {
-        log('No active chip before click.');
-      }
-    }
-    const freeTab = page.locator('.rcfs-topbar .rcfs-chip[data-idx="12"]');
-    if (await freeTab.isVisible()) {
-      const isActive = await freeTab.evaluate((el) => el.classList.contains('is-active'));
-      const freeTabText = (await freeTab.textContent())?.trim() ?? '';
-      const freeTabClass = await freeTab.evaluate((el) => el.className);
-      log(`FREE tab found: text="${freeTabText}" class="${freeTabClass}" active=${isActive}`);
-      if (!isActive) {
-        await freeTab.scrollIntoViewIfNeeded();
-        let activated = false;
-        for (let attempt = 1; attempt <= 3; attempt += 1) {
-          if (attempt === 1) {
-            await freeTab.click({ force: true });
-            log('Selected FREE tab (click)');
-          } else if (attempt === 2) {
-            await freeTab.dispatchEvent('click');
-            log('Selected FREE tab (dispatchEvent)');
-          } else {
-            await freeTab.evaluate((el) => el.click());
-            log('Selected FREE tab (element.click)');
-          }
-          try {
-            await page.waitForFunction(
-              () =>
-                !!document
-                  .querySelector('.rcfs-topbar .rcfs-chip[data-idx="12"]')
-                  ?.classList.contains('is-active'),
-              { timeout: 1500 },
-            );
-            activated = true;
-            break;
-          } catch {
-            log(`FREE tab still inactive after attempt ${attempt}.`);
-          }
-        }
-        await sleepRandom(400, 900);
-        const activeAfter = await page
-          .locator('.rcfs-topbar .rcfs-chip.is-active')
-          .allTextContents();
-        if (activeAfter.length > 0) {
-          log(`Active chip(s) after click: ${activeAfter.map((t) => t.trim()).join(' | ')}`);
-        } else {
-          log('No active chip after click.');
-        }
-        if (!activated) {
-          log('FREE tab did not become active; filtering may not have applied.');
-        }
-      } else {
-        log('FREE tab already active; skipping click.');
-      }
+    const allTab = page.getByRole('tab', { name: /all competitions/i });
+    if (await allTab.isVisible().catch(() => false)) {
+      await allTab.dispatchEvent('click');
+      log('Selected All Competitions tab');
+      await sleepRandom(1500, 2500);
     } else {
-      log('FREE tab not found; continuing.');
-      const chipsWithIdx = await page
-        .locator('.rcfs-topbar .rcfs-chip')
-        .evaluateAll((els) =>
-          els.map((el) => ({
-            text: (el.textContent || '').trim(),
-            idx: el.getAttribute('data-idx'),
-            className: el.className,
-          })),
-        );
-      log(`Topbar chip details: ${JSON.stringify(chipsWithIdx)}`);
+      const tabNames = await page.getByRole('tab').allTextContents();
+      log(`All Competitions tab not found; tabs: ${tabNames.join(' | ')}`);
     }
-    
-    await page.waitForSelector('a.rcfs-card');
-    const freeItems = page.locator(
-      'a.rcfs-card:has(.rcfs-badge-price:has-text("free"))',
-    );
 
-    const freeItemCount = await freeItems.count();
-    log(`Found ${freeItemCount} free items before filtering`);
-    const items = await Promise.all(
-      Array.from({ length: freeItemCount }, (_, i) => i).map(async (i) => {
-        const item = freeItems.nth(i);
-        const title = (await item.locator('.rcfs-name').innerText()).trim();
-        const url = (await item.getAttribute('href')) ?? '';
-        return { title, url };
-      }),
-    );
-    log(`Collected ${items.length} item entries`);
-    const uniqueUrlList = [
-      ...new Set(
-        items
-          .filter(({ title, url }) => {
-            const isReferral =
-              title.toLowerCase().includes('referral') ||
-              url.toLowerCase().includes('referral');
-            if (isReferral) {
-              log(`Filtered referral: ${title} - ${url}`);
-            }
-            return url && !isReferral;
-          })
-          .map(({ url }) => url),
-      ),
-    ];
-    log(`Found ${uniqueUrlList.length} free items`);
+    // Free comps render a "Free competition" view button; paid comps have an
+    // Add button instead. Cards can be duplicated by the carousel, so visit
+    // one button per unique card title.
+    const freeButtons = page.getByRole('button', { name: /view competition/i });
+    const freeButtonCount = await freeButtons.count();
+    log(`Found ${freeButtonCount} free competition buttons`);
 
+    const seenTitles = new Set<string>();
     const eligibleUrlList: string[] = [];
-
-    for (let i = 0; i < uniqueUrlList.length; i += 1) {
-      const url = uniqueUrlList[i];
-      log(`Free item ${i + 1}: ${url}`);
-      await page.goto(url);
-      log(`Opened item page: ${url}`);
-      await sleepRandom(400, 1200);
-      const hasTicketBanner = await page
-        .getByText('YOU HAVE 1 TICKET ON THIS PRIZE', { exact: false })
-        .isVisible();
-      const maxTicketMessage = await page
-        .getByText('You cannot purchase anymore tickets', { exact: false })
-        .isVisible();
-      if (hasTicketBanner || maxTicketMessage) {
-        log(`Skipping already-held ticket: ${url}`);
+    for (let i = 0; i < freeButtonCount; i += 1) {
+      // Re-query after each goBack since the SPA re-renders.
+      const button = page.getByRole('button', { name: /view competition/i }).nth(i);
+      if (!(await button.isVisible().catch(() => false))) {
+        continue;
+      }
+      const title = (
+        await button.evaluate(
+          (el) => el.closest('div[class]')?.parentElement?.textContent ?? '',
+        )
+      ).trim();
+      if (seenTitles.has(title)) {
+        continue;
+      }
+      seenTitles.add(title);
+      if (title.toLowerCase().includes('referral')) {
+        log(`Filtered referral: ${title}`);
         continue;
       }
 
-      eligibleUrlList.push(url);
-      log(`Eligible item: ${url}`);
-      await page.locator('#submitorder').click();
-      log(`Added to cart: ${url}`);
-      addedUrls.push(url);
-      await sleepRandom(500, 1500);
+      await button.dispatchEvent('click');
+      await page.waitForURL((url) => !url.pathname.includes('current-competitions'), {
+        timeout: 30_000,
+      });
+      await sleepRandom(2000, 3500);
+      const url = page.url();
+      log(`Opened free competition: ${url}`);
+      const text = await pageText(page);
+      if (/YOU ARE ENTERED/i.test(text)) {
+        log(`Already entered: ${url}`);
+      } else if (/cannot purchase anymore tickets|max.*reached/i.test(text)) {
+        log(`Skipping maxed-out competition: ${url}`);
+      } else {
+        // Login should have auto-added the ticket, but if the page offers an
+        // explicit Add to cart button, use it as well.
+        const addToCart = page.getByRole('button', { name: /add to cart/i }).first();
+        if (await addToCart.isVisible().catch(() => false)) {
+          await addToCart.click();
+          log(`Clicked Add to cart: ${url}`);
+          await sleepRandom(1000, 2000);
+        }
+        eligibleUrlList.push(url);
+        log(`Eligible (not yet entered): ${url}`);
+      }
+      await page.goBack({ waitUntil: 'commit' });
+      await page.getByRole('tab').first().waitFor({ timeout: 60_000 });
+      await sleepRandom(800, 1500);
+    }
+    log(`Eligible competitions: ${eligibleUrlList.length}`);
+
+    // The cart is the source of truth: free tickets land there on login.
+    await page.goto('https://www.revcomps.com/cart', { waitUntil: 'commit' });
+    await page
+      .getByRole('button', { name: /proceed to checkout/i })
+      .first()
+      .waitFor({ timeout: 60_000 })
+      .catch(() => {});
+    await sleepRandom(1500, 3000);
+    const cartText = await pageText(page);
+    const totalMatch = cartText.match(/TOTAL:\s*£\s*([\d.]+)/i);
+    const cartTotal = totalMatch ? Number(totalMatch[1]) : null;
+    log(`Cart total: ${totalMatch ? `£${totalMatch[1]}` : 'not found'}`);
+
+    const hasCheckout = await page
+      .getByRole('button', { name: /proceed to checkout/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
+
+    if (!hasCheckout || cartTotal === null) {
+      if (eligibleUrlList.length === 0) {
+        log('Cart empty and no eligible free competitions; nothing to do.');
+        emitResult('no_items');
+        return;
+      }
+      throw new Error(
+        `Eligible free competitions found but cart has no checkout (${eligibleUrlList.join(', ')})`,
+      );
     }
 
-    if (eligibleUrlList.length === 0) {
-      log('No eligible free items, skipping checkout.');
+    const freeItemInCart = /£\s*0\.00/.test(cartText);
+    if (eligibleUrlList.length === 0 && !freeItemInCart) {
+      if (cartTotal > 0) {
+        log(`Note: cart holds £${cartTotal.toFixed(2)} of paid items (left untouched).`);
+      }
+      log('No eligible free competitions and no free items in cart.');
       emitResult('no_items');
       return;
     }
 
-    await page.goto('https://www.revcomps.com/cart/');
-    log('Opened cart');
-    await sleepRandom(2500, 10000);
-    await page.getByRole('link', { name: 'Proceed to checkout' }).click();
+    if (cartTotal > 0) {
+      // Refuse to check out anything that costs money: the cart can contain
+      // paid tickets the user added manually.
+      throw new Error(
+        `Cart total is £${cartTotal.toFixed(2)} (contains paid items); refusing to checkout. Clear the cart to let free entries through.`,
+      );
+    }
+
+    addedUrls.push(...eligibleUrlList);
+    await page.getByRole('button', { name: /proceed to checkout/i }).first().click();
     log('Proceeded to checkout');
-    await sleepRandom(2500, 10000);
+    await sleepRandom(2500, 6000);
+
     if (isTestMode) {
       log('Test mode enabled; skipping order placement.');
       emitResult('ok');
       return;
     }
 
-    await page.locator('#place_order').click();
-    log('Placed order');
+    const payNow = page
+      .getByRole('button', { name: /pay now|place order|complete order/i })
+      .first();
+    await payNow.waitFor({ timeout: 60_000 });
+    const payLabel = (await payNow.textContent())?.trim() ?? '';
+    const payAmount = payLabel.match(/£\s*([\d.]+)/);
+    if (payAmount && Number(payAmount[1]) > 0) {
+      throw new Error(
+        `Checkout button shows a non-zero amount ("${payLabel}"); refusing to pay.`,
+      );
+    }
+    await payNow.click();
+    log(`Clicked pay button ("${payLabel}")`);
+    await sleepRandom(3000, 6000);
+    // The recorded flow needed a second click on PAY NOW.
+    if (await payNow.isVisible().catch(() => false)) {
+      await payNow.click();
+      log('Clicked pay button again');
+    }
     await sleepRandom(5000, 10000);
+    log('Order placed');
 
     emitResult('ok');
-
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const stepAtFailure = lastStep;
     log(`Error: ${message}`);
+    lastStep = stepAtFailure;
     emitResult('error', message);
     throw error;
   }
