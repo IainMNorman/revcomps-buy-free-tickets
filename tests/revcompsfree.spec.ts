@@ -189,10 +189,17 @@ test('test', async ({ page }) => {
     await acceptCookiesIfShown();
     await page.locator('#login-modal-conectare').click();
     log('Submitted login');
-    await page
-      .getByRole('button', { name: 'Logout' })
-      .first()
-      .waitFor({ timeout: 60_000 });
+    const logoutButton = page.getByRole('button', { name: 'Logout' }).first();
+    const authError = page
+      .getByText(/authentication failed|check your credentials|account.*blocked/i)
+      .first();
+    await logoutButton.or(authError).first().waitFor({ timeout: 60_000 });
+    if (!(await logoutButton.isVisible().catch(() => false))) {
+      const authErrorText =
+        (await authError.textContent().catch(() => null))?.trim() ??
+        'no error message captured';
+      throw new Error(`Login failed: ${authErrorText}`);
+    }
     log('Logged in (free tickets are auto-added to cart on login)');
     await sleepRandom(500, 1200);
 
