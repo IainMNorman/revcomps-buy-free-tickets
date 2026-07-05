@@ -268,11 +268,15 @@ test('test', async ({ page }) => {
 
     // The cart is the source of truth: free tickets land there on login.
     await page.goto('https://www.revcomps.com/cart', { waitUntil: 'commit' });
+    log('Opened cart');
+    // An empty cart has no checkout button, so don't wait long for it.
     await page
       .getByRole('button', { name: /proceed to checkout/i })
       .first()
-      .waitFor({ timeout: 60_000 })
-      .catch(() => {});
+      .waitFor({ timeout: 20_000 })
+      .catch(() => {
+        log('No checkout button appeared within 20s (cart may be empty).');
+      });
     await sleepRandom(1500, 3000);
     const cartText = await pageText(page);
     const totalMatch = cartText.match(/TOTAL:\s*£\s*([\d.]+)/i);
