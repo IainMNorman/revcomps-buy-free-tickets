@@ -82,9 +82,12 @@ const writeResult = (payload: object) => {
 
 // Every log updates the result file, so even a hard crash / kill leaves a
 // valid JSON with error=true and the step it died on.
+const startTime = Date.now();
+
 const log = (message: string) => {
-  runHistory.push(message);
-  console.log(message);
+  const stamped = `[${((Date.now() - startTime) / 1000).toFixed(1)}s] ${message}`;
+  runHistory.push(stamped);
+  console.log(stamped);
   lastStep = message;
   writeResult(
     buildPayload('error', {
@@ -269,13 +272,14 @@ test('test', async ({ page }) => {
     // The cart is the source of truth: free tickets land there on login.
     await page.goto('https://www.revcomps.com/cart', { waitUntil: 'commit' });
     log('Opened cart');
-    // An empty cart has no checkout button, so don't wait long for it.
-    await page
-      .getByRole('button', { name: /proceed to checkout/i })
+    // Resolve as soon as the cart shows either state.
+    const checkoutButton = page.getByRole('button', { name: /proceed to checkout/i });
+    await checkoutButton
+      .or(page.getByText(/cart is currently empty/i))
       .first()
-      .waitFor({ timeout: 20_000 })
+      .waitFor({ timeout: 30_000 })
       .catch(() => {
-        log('No checkout button appeared within 20s (cart may be empty).');
+        log('Cart rendered neither checkout button nor empty message within 30s.');
       });
     await sleepRandom(1500, 3000);
     const cartText = await pageText(page);
