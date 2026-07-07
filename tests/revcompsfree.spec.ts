@@ -387,9 +387,19 @@ test('test', async ({ page }) => {
     }
 
     const payNow = page
-      .getByRole('button', { name: /pay now|place order|complete order/i })
+      .getByRole('button', { name: /^continue$|pay now|place order|complete order/i })
       .first();
     await payNow.waitFor({ timeout: 60_000 });
+    // The final button is a bare "CONTINUE"; the amount lives in the order
+    // summary above it. Refuse to place any order that costs money.
+    const checkoutText = await pageText(page);
+    const orderTotal = checkoutText.match(/TOTAL:?\s*£\s*([\d.]+)/i);
+    log(`Checkout order total: ${orderTotal ? `£${orderTotal[1]}` : 'not found'}`);
+    if (orderTotal && Number(orderTotal[1]) > 0) {
+      throw new Error(
+        `Checkout total is £${orderTotal[1]}; refusing to place a paid order.`,
+      );
+    }
     const payLabel = (await payNow.textContent())?.trim() ?? '';
     const payAmount = payLabel.match(/£\s*([\d.]+)/);
     if (payAmount && Number(payAmount[1]) > 0) {
